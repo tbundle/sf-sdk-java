@@ -1,2 +1,2 @@
-# sdk-java
+# sf-sdk-java
 Stringflow Java SDK
