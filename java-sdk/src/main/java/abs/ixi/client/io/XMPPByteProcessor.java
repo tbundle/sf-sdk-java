@@ -299,7 +299,6 @@ public class XMPPByteProcessor implements ByteProcessor {
 		@Override
 		public boolean onParsedElement(Element e) {
 			try {
-
 				Element element = xmlParserHandler.getParsedElement();
 				XMPPPacket xmppPacket = PacketFactory.createPacket(element);
 

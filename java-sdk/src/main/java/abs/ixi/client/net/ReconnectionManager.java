@@ -270,7 +270,6 @@ public class ReconnectionManager implements NetConnectivityListener {
 
 					} else {
 						long mills = backoffCalculator.calcBackoffTime(retryCount);
-
 						LOGGER.log(Level.FINE, "Backing off by {0} millis", mills);
 						TimeUnit.MILLISECONDS.sleep(mills);
 					}

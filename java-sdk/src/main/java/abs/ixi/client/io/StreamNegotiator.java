@@ -122,7 +122,6 @@
  */
 package abs.ixi.client.io;
 
-import java.util.Calendar;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
@@ -130,6 +129,7 @@ import java.util.logging.Logger;
 
 import abs.ixi.client.core.Packet;
 import abs.ixi.client.core.PacketCollector;
+import abs.ixi.client.lang.Duration;
 import abs.ixi.client.lang.ObjectHolder;
 import abs.ixi.client.net.NetworkException;
 import abs.ixi.client.util.StringUtils;
@@ -178,11 +178,21 @@ import abs.ixi.client.xmpp.packet.XMPPPacket;
 public class StreamNegotiator implements PacketCollector {
 	private static final Logger LOGGER = Logger.getLogger(StreamNegotiator.class.getName());
 
+	/**
+	 * During Stream neotiation, reply time-out is enforced by client sdk. So
+	 * server must respond within stipulated time frome.
+	 */
+	private static final Duration DEFAULT_REPLY_TIMEOUT = Duration.ofSeconds(20);
+
 	private StreamContext streamContext;
 	private Writer writer;
 	private Reader reader;
 	private long replyTimeout;
 	private ObjectHolder<XMPPPacket> holder;
+
+	StreamNegotiator(StreamContext ctx, Writer writer, Reader reader) {
+		this(ctx, writer, reader, DEFAULT_REPLY_TIMEOUT.toMillis());
+	}
 
 	StreamNegotiator(StreamContext ctx, Writer writer, Reader reader, long replyTimeout) {
 		this.streamContext = ctx;
@@ -207,7 +217,6 @@ public class StreamNegotiator implements PacketCollector {
 				sendStartStreamHeader(userJID, domain);
 
 			} else if (streamContext.getState() == StreamState.SASL_FAILED) {
-
 				if (streamContext.getSaslMechanism() == SASLMechanism.PLAIN) {
 					this.writer.writeSync(new SASLAuth(userJID.getNode(), pwd, SASLMechanism.PLAIN));
 					this.streamContext.setState(StreamState.SASL_STARTED);
@@ -265,14 +274,13 @@ public class StreamNegotiator implements PacketCollector {
 
 					} else if (xmppPacket instanceof FailedPacket) {
 						NegotiationResult result = handleFailedPacket((FailedPacket) xmppPacket);
-
-						if (result != null)
+						if (result != null) {
 							return result;
+						}
 
 					} else {
 						// Other Packet are not allowed during Stream
 						// Negotiation.
-
 						closeConnection(true);
 						return new NegotiationResult(true, NegotiationError.ERROR);
 					}
@@ -291,7 +299,6 @@ public class StreamNegotiator implements PacketCollector {
 			return new NegotiationResult(true, NegotiationError.TIME_OUT);
 
 		} finally {
-
 			this.reader.removePacketCollector(this);
 		}
 	}
@@ -467,7 +474,6 @@ public class StreamNegotiator implements PacketCollector {
 		startStream.setFrom(userJid);
 
 		try {
-
 			startStream.setTo(new JID(domain));
 
 		} catch (InvalidJabberId e) {
@@ -483,15 +489,15 @@ public class StreamNegotiator implements PacketCollector {
 		XMPPPacket xmppPacket = null;
 
 		synchronized (this.holder) {
-			long start = Calendar.getInstance().getTimeInMillis();
+			long start = System.currentTimeMillis();
 
 			while (this.holder.getObj() == null) {
 				this.holder.wait(this.replyTimeout);
 
-				long end = Calendar.getInstance().getTimeInMillis();
+				long end = System.currentTimeMillis();
 
 				if (end - start > this.replyTimeout) {
-					throw new TimeoutException("Server did not reply in time");
+					throw new TimeoutException("Server did not reply in time:" + this.replyTimeout);
 				}
 			}
 

@@ -193,7 +193,7 @@ public class TCPConnection implements Connection {
 			bytesRead = channel.read(buffer);
 
 			if (bytesRead == -1) {
-				LOGGER.log(Level.FINE, "Reached end of stream. disabling input on the channel");
+				LOGGER.log(Level.FINE, "Reached end of stream; Closing network socket");
 				try {
 					this.channel.socket().close();
 				} catch (Exception e) {

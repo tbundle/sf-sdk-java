@@ -230,9 +230,7 @@ public class XMPPStreamManager extends AbstractPacketForwarder implements Packet
 		try {
 			ConnectionManager.getInstance().connectXMPPConnection(true);
 
-			long replyTime = this.connection.getReplyTimeout().toMillis();
-			StreamNegotiator negotiator = new StreamNegotiator(streamContext, writer, reader, replyTime);
-
+			StreamNegotiator negotiator = new StreamNegotiator(this.streamContext, this.writer, this.reader);
 			NegotiationResult result = negotiator.negotiateStream(new JID(userName, domain), pwd, domain);
 
 			if (result.isSuccess()) {
@@ -254,8 +252,7 @@ public class XMPPStreamManager extends AbstractPacketForwarder implements Packet
 	public synchronized NegotiationResult restartStream() throws NetworkException {
 		try {
 
-			long replyTime = this.connection.getReplyTimeout().toMillis();
-			StreamNegotiator negotiator = new StreamNegotiator(streamContext, writer, reader, replyTime);
+			StreamNegotiator negotiator = new StreamNegotiator(this.streamContext, this.writer, this.reader);
 
 			String passwd = Platform.getInstance().getUserSession().get(Session.KEY_USER_PASSWORD).toString();
 			NegotiationResult result = negotiator.negotiateStream(Platform.getInstance().getUserJID(), passwd,
@@ -459,6 +456,31 @@ public class XMPPStreamManager extends AbstractPacketForwarder implements Packet
 		sendPacketSync(new StreamHeader(true));
 	}
 
+	@Override
+	public void closed() {
+		this.resetStream();
+	}
+
+	@Override
+	public void resetStream() {
+		if (isStreamResumable()) {
+			this.streamContext.reset(false);
+
+		} else {
+			this.streamContext.reset(true);
+		}
+	}
+
+	/**
+	 * Check if the stream is resumable
+	 * 
+	 * @return true if the stream is resumable otherwise false
+	 */
+	private boolean isStreamResumable() {
+		return (System.currentTimeMillis() - this.connection.getLastActivity()) > this.streamContext
+				.getMaxResumptionTimeInSecs() * 1000;
+	}
+
 	/**
 	 * Initiate stream manager shutdown sequence. During stream manager
 	 * shutdown, an attemp is made to gracefully close the ongoing stream with
@@ -481,45 +503,6 @@ public class XMPPStreamManager extends AbstractPacketForwarder implements Packet
 			LOGGER.log(Level.WARNING, "Exception caught during stream manager shutdown", e);
 			// Swallow exception
 		}
-	}
-
-	@Override
-	public void connected() {
-		// do nothing
-
-	}
-
-	@Override
-	public void closingConnection() {
-		// do nothing
-
-	}
-
-	@Override
-	public void closed() {
-		resetStream();
-	}
-
-	@Override
-	public void resetStream() {
-
-		if (isStreamResumable()) {
-			this.streamContext.reset(false);
-
-		} else {
-			this.streamContext.reset(true);
-		}
-
-	}
-
-	/**
-	 * Check if the stream is resumable
-	 * 
-	 * @return true if the stream is resumable otherwise false
-	 */
-	private boolean isStreamResumable() {
-		return (System.currentTimeMillis() - this.connection.getLastActivity()) > this.streamContext
-				.getMaxResumptionTimeInSecs() * 1000;
 	}
 
 }

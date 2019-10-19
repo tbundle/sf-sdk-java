@@ -135,6 +135,13 @@ public interface Reader extends Runnable, PacketForwarder {
 	public void start();
 
 	/**
+	 * Reconnection can not be triggered until stream has been authenticated for
+	 * the first time. This method is invoked by stream manager when startStream
+	 * is successful.
+	 */
+	public void enableReconnection();
+
+	/**
 	 * @return true if the reader is running and reading otherwise false.
 	 *         Important to note that a true value does not indicate that reader
 	 *         is reading content from socket at the moment. The flag value is

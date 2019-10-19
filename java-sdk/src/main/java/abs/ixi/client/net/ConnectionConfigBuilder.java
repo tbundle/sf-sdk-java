@@ -147,11 +147,6 @@ public class ConnectionConfigBuilder {
 		return this;
 	}
 
-	public ConnectionConfigBuilder withReplyTimeout(Duration replyTimeout) {
-		this.config.setReplyTimeOut(replyTimeout);
-		return this;
-	}
-
 	public ConnectionConfigBuilder withHeartBeatFrequency(Duration frequence) {
 		this.config.setHeartBeatFrequency(frequence);
 		return this;

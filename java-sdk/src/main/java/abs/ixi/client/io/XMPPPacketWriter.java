@@ -416,6 +416,7 @@ public class XMPPPacketWriter implements Writer, PacketCollector, ReconnectionLi
 	private void write0(Packet packet) throws NetworkException {
 		if (connection.isConnected()) {
 			try {
+				LOGGER.log(Level.FINE, "SEND: {0}", packet);
 				connection.write(packet);
 			} catch (IOException e) {
 				throw new NetworkException(Reason.IO_ERROR);

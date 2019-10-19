@@ -138,13 +138,17 @@ public interface ConnectionStateObserver {
 	 * be first time when tcp connection is extablished with the server or
 	 * reconnected
 	 */
-	public void connected();
+	default public void connected() {
+		// blank implementation
+	}
 
 	/**
 	 * Method call to inform the dependent entities that after this method call
 	 * the connection will be closed.
 	 */
-	public void closingConnection();
+	default public void closingConnection() {
+		//Blank implementation
+	}
 
 	/**
 	 * Called when connection is closed

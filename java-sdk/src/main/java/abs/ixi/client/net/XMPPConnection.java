@@ -127,7 +127,6 @@ import java.nio.ByteBuffer;
 
 import abs.ixi.client.core.Packet;
 import abs.ixi.client.io.XMPPStream;
-import abs.ixi.client.lang.Duration;
 
 /**
  * An extension of {@link TCPConnection} with semenatics of XMPP protocol such
@@ -141,8 +140,6 @@ import abs.ixi.client.lang.Duration;
  *
  */
 public class XMPPConnection extends TCPConnection implements NegotiatedConnection {
-	private static final Duration DEFAULT_REPLY_TIMEOUT = Duration.ofSeconds(10);
-
 	/**
 	 * Flag to indicate if this connection has been negotiated successfully
 	 */
@@ -158,10 +155,6 @@ public class XMPPConnection extends TCPConnection implements NegotiatedConnectio
 
 	XMPPConnection(ConnectionConfig config) {
 		super(config);
-
-		if (config.getReplyTimeOut() == null) {
-			config.setReplyTimeOut(DEFAULT_REPLY_TIMEOUT);
-		}
 	}
 
 	@Override
@@ -184,10 +177,6 @@ public class XMPPConnection extends TCPConnection implements NegotiatedConnectio
 			this.isConnected = false;
 			throw e;
 		}
-	}
-
-	public Duration getReplyTimeout() {
-		return getConnConfig().getReplyTimeOut() == null ? DEFAULT_REPLY_TIMEOUT : getConnConfig().getReplyTimeOut();
 	}
 
 	@Override

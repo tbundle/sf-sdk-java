@@ -183,6 +183,16 @@ public class XMPPPacketReader extends AbstractPacketForwarder
 	private AtomicBoolean suspended;;
 
 	/**
+	 * Flag to indicate if reconnection is enabled
+	 */
+	private volatile boolean reconnectionEnabled;
+
+	/**
+	 * A mutex used to suspend reader when reconnection is not enabled.
+	 */
+	private AtomicBoolean disconnectedMutex;
+
+	/**
 	 * Reader state flags
 	 */
 	private volatile boolean started = false;
@@ -197,6 +207,7 @@ public class XMPPPacketReader extends AbstractPacketForwarder
 		this.xmppProtocol = xmppProtocolInstance();
 		this.connResetInProgress = new AtomicBoolean(false);
 		this.suspended = new AtomicBoolean(false);
+		this.disconnectedMutex = new AtomicBoolean(false);
 
 		ConnectionManager.getInstance().registerConnectionStateObserver(this);
 	}
@@ -240,6 +251,10 @@ public class XMPPPacketReader extends AbstractPacketForwarder
 					// closed
 				} catch (IOException e) {
 					LOGGER.log(Level.FINE, "Failed to read bytes from connection", e);
+					if (!this.reconnectionEnabled) {
+						suspendWhenReconnectionNotEnabled();
+					}
+
 					if (!this.connResetInProgress.get() && !this.stopping && !this.shutdown) {
 						LOGGER.log(Level.FINE, "Trigring reconnection from Reader");
 						this.connResetInProgress.set(true);
@@ -254,7 +269,7 @@ public class XMPPPacketReader extends AbstractPacketForwarder
 				 * Reader state flags will be modified and in such case Reader
 				 * must exist immediately after coming out of suspension.
 				 */
-				suspendIfConnectionResetInProgress();
+				suspendIfReconnecting();
 
 			}
 
@@ -274,18 +289,47 @@ public class XMPPPacketReader extends AbstractPacketForwarder
 	 * 
 	 * @throws InterruptedException if thread is interrupted
 	 */
-	private void suspendIfConnectionResetInProgress() throws InterruptedException {
+	private void suspendIfReconnecting() throws InterruptedException {
+		LOGGER.log(Level.FINE, "Evaluating READER suspend condition");
+
 		if (connResetInProgress.get()) {
 			synchronized (this.connResetInProgress) {
-				while (connResetInProgress.get()) {
-					this.suspended.set(true);
-					connResetInProgress.wait(TimeUnit.SECONDS.toMillis(5));
+				try {
+					while (connResetInProgress.get()) {
+						LOGGER.log(Level.FINE, "Suspending READER thread");
+
+						this.suspended.set(true);
+						connResetInProgress.wait(TimeUnit.SECONDS.toMillis(5));
+					}
+				} catch (Exception e) {
+					// Ignore this
 				}
 
 				// Destroy stream processor because its stateful
 				this.streamProcessor = new XmppStreamProcessor(this);
 				this.suspended.set(false);
 			}
+		}
+	}
+
+	private void suspendWhenReconnectionNotEnabled() throws InterruptedException {
+		LOGGER.log(Level.FINE, "Evaluating READER suspension condition when reconnection is not enabled");
+
+		synchronized (this.disconnectedMutex) {
+			try {
+				while (disconnectedMutex.get()) {
+					LOGGER.log(Level.FINE, "Suspending READER thread (reconnection is not enabled)");
+
+					this.suspended.set(true);
+					this.disconnectedMutex.wait(TimeUnit.SECONDS.toMillis(5));
+				}
+			} catch (Exception e) {
+				// Ignore this
+			}
+
+			// Destroy stream processor because its stateful
+			this.streamProcessor = new XmppStreamProcessor(this);
+			this.suspended.set(false);
 		}
 	}
 
@@ -297,11 +341,12 @@ public class XMPPPacketReader extends AbstractPacketForwarder
 			this.streamProcessor.flushBytePipeline();
 		}
 
-		LOGGER.fine("Reading data from socket");
+		LOGGER.fine("Reading bytes from socket");
 		int count = this.connection.read(buff);
-		LOGGER.fine("Received data : " + new String(buff.array(), 0, buff.position()));
+		LOGGER.fine("RECEIVED: " + new String(buff.array(), 0, buff.position()));
 
 		if (count == -1) {
+			LOGGER.log(Level.FINE, "Reached end of stream");
 			throw new IOException("Failed to read from Socket");
 		}
 
@@ -317,7 +362,9 @@ public class XMPPPacketReader extends AbstractPacketForwarder
 	 */
 	private void processBytes(ByteBuffer buff) {
 		try {
+			LOGGER.log(Level.FINE, "Generating packet from received bytes");
 			this.streamProcessor.process(buff.array(), 0, buff.position());
+			LOGGER.log(Level.FINE, "Done processing received bytes");
 
 		} catch (Throwable e) {
 			LOGGER.log(Level.WARNING, "Exception caught in Reader while processing", e);
@@ -391,13 +438,25 @@ public class XMPPPacketReader extends AbstractPacketForwarder
 			this.start();
 
 		} else {
-			synchronized (this.connResetInProgress) {
-				this.connResetInProgress.notify();
-				LOGGER.log(Level.FINE, "Reader thread has been notified");
+			if (this.reconnectionEnabled) {
+				synchronized (this.disconnectedMutex) {
+					this.disconnectedMutex.notifyAll();
+					LOGGER.log(Level.INFO, "Notified reader thread on mutex");
+				}
+			} else {
+				synchronized (this.connResetInProgress) {
+					this.connResetInProgress.notify();
+					LOGGER.log(Level.FINE, "Reader thread has been notified");
+				}
 			}
 		}
 	}
-	
+
+	@Override
+	public void enableReconnection() {
+		this.reconnectionEnabled = true;
+	}
+
 	@Override
 	public void stop() {
 		this.stopping = true;
@@ -421,7 +480,6 @@ public class XMPPPacketReader extends AbstractPacketForwarder
 
 		return this.shutdown;
 	}
-
 
 	@Override
 	public String toString() {

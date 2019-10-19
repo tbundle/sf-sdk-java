@@ -146,12 +146,6 @@ public class ConnectionConfig {
 	private int port;
 
 	/**
-	 * Time duration in which client must receive a reply/acknowledgement from
-	 * server
-	 */
-	private Duration replyTimeOut;
-
-	/**
 	 * Flag to indicate of the inderlying connection has a
 	 * {@link HeartBeatManger} attached
 	 */
@@ -201,18 +195,6 @@ public class ConnectionConfig {
 
 	void setServerPort(int port) {
 		this.port = port;
-	}
-
-	/**
-	 * @return duraion in which client must receive a reply/acknowldegement from
-	 *         server.
-	 */
-	public Duration getReplyTimeOut() {
-		return replyTimeOut;
-	}
-
-	void setReplyTimeOut(Duration replyTimeOut) {
-		this.replyTimeOut = replyTimeOut;
 	}
 
 	/**
